@@ -1,0 +1,11 @@
+# https://taskfile.dev
+
+version: '3'
+
+tasks:
+  pack-all:
+    cmds:
+      - dotnet pack -r win-x64
+      - dotnet pack -r linux-x64
+      - dotnet pack -r osx-x64
+      - dotnet pack -r osx-arm64

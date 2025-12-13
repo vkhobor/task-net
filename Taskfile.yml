@@ -31,11 +31,11 @@ tasks:
       - |
         task get-all-missing | while IFS= read -r line; do
         echo "Building $line"
+        rm -rf ./task-net-template/binaries
+        mkdir ./task-net-template/binaries
 
         while IFS=',' read -r dotnet_runtime binaryname go_platform goarch; do
         [ "$dotnet_runtime" = "dotnet runtime" ] && continue  # skip header
-        rm -rf ./task-net-template/binaries
-        mkdir ./task-net-template/binaries
         echo "Downloading $binaryname"
         ./scripts/assemble/task-net download --version "$line" --output "./task-net-template/binaries/$binaryname" --name task.exe --platform "$go_platform" --arch "$goarch"
         done < ./runtimes
@@ -49,10 +49,11 @@ tasks:
   pack-and-upload:
     cmds:
       - task: clear-bin
-      - |
-        task pack
-        echo "Uploading to nuget.org"
-        task upload-nuget NUGET_API_KEY="{{.NUGET_API_KEY}}"
+      - task: pack
+      - echo "Uploading to nuget.org"
+      - task: upload-nuget
+        VARS:
+          NUGET_API_KEY: '{{.NUGET_API_KEY}}'
 
   build-go-cli:
     dir: ./scripts/assemble

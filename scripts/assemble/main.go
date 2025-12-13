@@ -422,6 +422,12 @@ func main() {
 			{
 				Name:  "compare",
 				Usage: "Compare Task versions with NuGet package versions",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:  "cutoff",
+						Usage: "Oldest version to include (versions older than this will be filtered out)",
+					},
+				},
 				Action: func(c *cli.Context) error {
 					if c.NArg() != 1 {
 						return fmt.Errorf("usage: task-net compare <nuget-package-id>")
@@ -456,6 +462,18 @@ func main() {
 
 					// Sort and print results
 					taskOnly = sortVersions(taskOnly)
+
+					// Filter by cutoff if specified
+					cutoff := c.String("cutoff")
+					if cutoff != "" {
+						var filtered []string
+						for _, version := range taskOnly {
+							if compareVersions(version, cutoff) >= 0 {
+								filtered = append(filtered, version)
+							}
+						}
+						taskOnly = filtered
+					}
 
 					for _, version := range taskOnly {
 						fmt.Println(version)

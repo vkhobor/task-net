@@ -35,16 +35,24 @@ tasks:
         rm -rf ./task-net-template/binaries
         mkdir ./task-net-template/binaries
 
-        while IFS=',' read -r dotnet_runtime binaryname go_platform goarch; do
-        [ "$dotnet_runtime" = "dotnet runtime" ] && continue  # skip header
-        echo "Downloading $binaryname"
-        ./scripts/assemble/task-net download --version "$line" --output "./task-net-template/binaries/$binaryname" --name task.exe --platform "$go_platform" --arch "$goarch"
-        done < ./runtimes
+        task download-all-os VERSION="$line"
 
         ./scripts/assemble/task-net set-version -f ./task-net-template/TaskNet2.csproj -v "$line"
         task pack-and-upload
 
         done
+
+  download-all-os:
+    requires:
+      vars:
+        - VERSION
+    cmds:
+      - |
+        while IFS=',' read -r dotnet_runtime binaryname go_platform goarch; do
+          [ "$dotnet_runtime" = "dotnet runtime" ] && continue  # skip header
+          echo "Downloading $binaryname"
+          ./scripts/assemble/task-net download --version {{.VERSION}} --output "./task-net-template/binaries/$binaryname" --name task.exe --platform "$go_platform" --arch "$goarch"
+          done < ./runtimes
 
   pack-and-upload:
     cmds:
@@ -65,13 +73,13 @@ tasks:
     cmds:
       - rm -rf ./bin
 
-  test-i:
-    cmds:
-      - dotnet tool uninstall tasknet
-      - rm -rf /Users/vkhobor/.nuget/packages/tasknet
-      - dotnet tool install --configfile configfile.xml tasknet
-      - dotnet tool run task --version
+  # test-i:
+  #   cmds:
+  #     - dotnet tool uninstall tasknet
+  #     - rm -rf /Users/vkhobor/.nuget/packages/tasknet
+  #     - dotnet tool install --configfile configfile.xml tasknet
+  #     - dotnet tool run task --version
 
-  test-s:
-    cmds:
-      - echo "Testing tasknet{{.CLI_ARGS}}"
+  # test-s:
+  #   cmds:
+  #     - echo "Testing tasknet{{.CLI_ARGS}}"

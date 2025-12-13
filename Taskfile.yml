@@ -43,7 +43,6 @@ tasks:
         ./scripts/assemble/task-net set-version -f ./task-net-template/TaskNet2.csproj -v "$line"
         task pack-and-upload
 
-        break
         done
 
   pack-and-upload:

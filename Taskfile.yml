@@ -19,7 +19,7 @@ tasks:
       vars:
         - NUGET_API_KEY
     cmds:
-      - dotnet nuget push ./bin/Release/*.nupkg -k {{.NUGET_API_KEY}} -s https://api.nuget.org/v3/index.json
+      - dotnet nuget push ./bin/Release/*.nupkg -k {{.NUGET_API_KEY}} -s https://api.nuget.org/v3/index.json --skip-duplicate
 
   get-all-missing:
     cmds:

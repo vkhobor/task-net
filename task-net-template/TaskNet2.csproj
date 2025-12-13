@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Version>3.45.4</Version>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>task</ToolCommandName>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+ <ItemGroup>
+    <Content Include="binaries/task-win-amd64/task.exe" Pack="true" PackagePath="runtimes/win-x64/native/" />
+    <Content Include="binaries/task-linux-amd64/task.exe" Pack="true" PackagePath="runtimes/linux-x64/native/" />
+    <Content Include="binaries/task-darwin-amd64/task.exe" Pack="true" PackagePath="runtimes/osx-x64/native/" />
+    <Content Include="binaries/task-darwin-arm64/task.exe" Pack="true" PackagePath="runtimes/osx-arm64/native/" />
+  </ItemGroup>
+
+</Project>

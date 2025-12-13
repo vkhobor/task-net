@@ -2,10 +2,75 @@
 
 version: '3'
 
+vars:
+  NUGET_PACKAGE: TaskNet2
+  NUGET_API_KEY:
+    sh: echo "$NUGET_API_KEY"
+
 tasks:
-  pack-all:
+  pack:
+    dir: ./task-net-template
     cmds:
-      - dotnet pack -r win-x64
-      - dotnet pack -r linux-x64
-      - dotnet pack -r osx-x64
-      - dotnet pack -r osx-arm64
+      - dotnet pack
+
+  upload-nuget:
+    dir: ./task-net-template
+    requires:
+      vars:
+        - NUGET_API_KEY
+    cmds:
+      - dotnet nuget push ./bin/Release/*.nupkg -k {{.NUGET_API_KEY}} -s https://api.nuget.org/v3/index.json
+
+  get-all-missing:
+    cmds:
+      - ./scripts/assemble/task-net compare {{.NUGET_PACKAGE}}
+
+  build-all-missing:
+    deps: ['build-go-cli']
+    cmds:
+      - |
+        task get-all-missing | while IFS= read -r line; do
+        echo "Building $line"
+
+        while IFS=',' read -r dotnet_runtime binaryname go_platform goarch; do
+        [ "$dotnet_runtime" = "dotnet runtime" ] && continue  # skip header
+        rm -rf ./task-net-template/binaries
+        mkdir ./task-net-template/binaries
+        echo "Downloading $binaryname"
+        ./scripts/assemble/task-net download --version "$line" --output "./task-net-template/binaries/$binaryname" --name task.exe --platform "$go_platform" --arch "$goarch"
+        done < ./runtimes
+
+        ./scripts/assemble/task-net set-version -f ./task-net-template/TaskNet2.csproj -v "$line"
+        task pack-and-upload
+
+        break
+        done
+
+  pack-and-upload:
+    cmds:
+      - task: clear-bin
+      - |
+        task pack
+        echo "Uploading to nuget.org"
+        task upload-nuget NUGET_API_KEY="{{.NUGET_API_KEY}}"
+
+  build-go-cli:
+    dir: ./scripts/assemble
+    cmds:
+      - go build -o task-net
+
+  clear-bin:
+    dir: ./task-net-template
+    cmds:
+      - rm -rf ./bin
+
+  test-i:
+    cmds:
+      - dotnet tool uninstall tasknet
+      - rm -rf /Users/vkhobor/.nuget/packages/tasknet
+      - dotnet tool install --configfile configfile.xml tasknet
+      - dotnet tool run task --version
+
+  test-s:
+    cmds:
+      - echo "Testing tasknet{{.CLI_ARGS}}"

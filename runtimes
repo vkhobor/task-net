@@ -1,0 +1,5 @@
+dotnet runtime,binaryname,go-platform,goarch
+win-x64,task-win-amd64,windows,amd64
+linux-x64,task-linux-amd64,linux,amd64
+osx-x64,task-darwin-amd64,darwin,amd64
+osx-arm64,task-darwin-arm64,darwin,arm64

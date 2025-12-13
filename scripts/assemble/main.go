@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"sort"
 	"strconv"
@@ -172,13 +173,11 @@ func sortVersions(versions []string) []string {
 	return sorted
 }
 
-func getTaskFileName(version string) string {
-	platform := runtime.GOOS
+func getTaskFileName(platform, arch string) string {
 	if platform == "windows" {
 		platform = "windows"
 	}
 
-	arch := runtime.GOARCH
 	switch arch {
 	case "amd64":
 		arch = "amd64"
@@ -191,7 +190,7 @@ func getTaskFileName(version string) string {
 	}
 
 	ext := "tar.gz"
-	if runtime.GOOS == "windows" {
+	if platform == "windows" {
 		ext = "zip"
 	}
 
@@ -311,13 +310,13 @@ func extractTarGz(src, dest string) error {
 	return nil
 }
 
-func downloadTask(version, customName, outputDir string) error {
+func downloadTask(version, customName, outputDir, platform, arch string) error {
 	// Ensure version has 'v' prefix
 	if !strings.HasPrefix(version, "v") {
 		version = "v" + version
 	}
 
-	fileName := getTaskFileName(version)
+	fileName := getTaskFileName(platform, arch)
 	downloadUrl := fmt.Sprintf("https://github.com/go-task/task/releases/download/%s/%s", version, fileName)
 
 	// Create temp directory
@@ -330,7 +329,7 @@ func downloadTask(version, customName, outputDir string) error {
 	downloadPath := filepath.Join(tempDir, fileName)
 
 	// Download
-	fmt.Printf("Downloading Task %s...\n", version)
+	fmt.Printf("Downloading Task %s for %s/%s...\n", version, platform, arch)
 	err = downloadFile(downloadUrl, downloadPath)
 	if err != nil {
 		return fmt.Errorf("failed to download: %w", err)
@@ -338,7 +337,7 @@ func downloadTask(version, customName, outputDir string) error {
 
 	// Extract
 	extractDir := filepath.Join(tempDir, "extracted")
-	if runtime.GOOS == "windows" {
+	if platform == "windows" {
 		err = extractZip(downloadPath, extractDir)
 	} else {
 		err = extractTarGz(downloadPath, extractDir)
@@ -356,13 +355,13 @@ func downloadTask(version, customName, outputDir string) error {
 
 	// Move binary to final location
 	taskBinary := "task"
-	if runtime.GOOS == "windows" {
+	if platform == "windows" {
 		taskBinary = "task.exe"
 	}
 
 	srcPath := filepath.Join(extractDir, taskBinary)
 	destPath := filepath.Join(outputDir, customName)
-	if runtime.GOOS == "windows" && !strings.HasSuffix(customName, ".exe") {
+	if platform == "windows" && !strings.HasSuffix(customName, ".exe") {
 		destPath += ".exe"
 	}
 
@@ -372,14 +371,46 @@ func downloadTask(version, customName, outputDir string) error {
 	}
 
 	// Make executable on Unix
-	if runtime.GOOS != "windows" {
+	if platform != "windows" {
 		err = os.Chmod(destPath, 0755)
 		if err != nil {
 			return fmt.Errorf("failed to make executable: %w", err)
 		}
 	}
 
-	fmt.Printf("Downloaded Task %s as %s\n", version, destPath)
+	fmt.Printf("Downloaded Task %s for %s/%s as %s\n", version, platform, arch, destPath)
+	return nil
+}
+
+func setVersion(csprojPath, version string) error {
+	content, err := os.ReadFile(csprojPath)
+	if err != nil {
+		return fmt.Errorf("failed to read csproj file: %w", err)
+	}
+
+	text := string(content)
+
+	// Check if <Version> tag exists
+	versionRegex := regexp.MustCompile(`<Version>.*?</Version>`)
+	if versionRegex.MatchString(text) {
+		// Replace existing version
+		text = versionRegex.ReplaceAllString(text, fmt.Sprintf("<Version>%s</Version>", version))
+	} else {
+		// Add version tag after <PropertyGroup>
+		propertyGroupRegex := regexp.MustCompile(`(<PropertyGroup>\s*)`)
+		if propertyGroupRegex.MatchString(text) {
+			text = propertyGroupRegex.ReplaceAllString(text, fmt.Sprintf("${1}\n    <Version>%s</Version>", version))
+		} else {
+			return fmt.Errorf("no <PropertyGroup> found in csproj file")
+		}
+	}
+
+	err = os.WriteFile(csprojPath, []byte(text), 0644)
+	if err != nil {
+		return fmt.Errorf("failed to write csproj file: %w", err)
+	}
+
+	fmt.Printf("Set version %s in %s\n", version, csprojPath)
 	return nil
 }
 
@@ -455,13 +486,50 @@ func main() {
 						Usage:    "Output directory",
 						Required: true,
 					},
+					&cli.StringFlag{
+						Name:    "platform",
+						Aliases: []string{"p"},
+						Usage:   "Target platform (linux, darwin, windows)",
+						Value:   runtime.GOOS,
+					},
+					&cli.StringFlag{
+						Name:    "arch",
+						Aliases: []string{"a"},
+						Usage:   "Target architecture (amd64, arm64, arm, 386)",
+						Value:   runtime.GOARCH,
+					},
 				},
 				Action: func(c *cli.Context) error {
 					version := c.String("version")
 					name := c.String("name")
 					output := c.String("output")
+					platform := c.String("platform")
+					arch := c.String("arch")
 
-					return downloadTask(version, name, output)
+					return downloadTask(version, name, output, platform, arch)
+				},
+			},
+			{
+				Name:  "set-version",
+				Usage: "Set version in a csproj file",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:     "file",
+						Aliases:  []string{"f"},
+						Usage:    "Path to csproj file",
+						Required: true,
+					},
+					&cli.StringFlag{
+						Name:     "version",
+						Aliases:  []string{"v"},
+						Usage:    "Version to set",
+						Required: true,
+					},
+				},
+				Action: func(c *cli.Context) error {
+					file := c.String("file")
+					version := c.String("version")
+					return setVersion(file, version)
 				},
 			},
 		},
